@@ -1,0 +1,13 @@
+
+suggest_coordinates
+   if less than x%, return to eventually fill up with black blocks
+   main_recurse
+      read word list, find random word, temporarily mark it as used
+      put it letter by letter, create a matrix work copy
+         if non matching letter -> drop matrix copy and return
+         if hit black block or beyond end of board -> drop matrix copy and return
+         if next to an existing letter
+            change direction (h/v)
+            determine coordinates from previous black block or board start
+            put_word
+      word was done without conflicts, store the matrix copy
