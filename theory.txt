@@ -1,13 +1,26 @@
+American Crossword
 
-suggest_coordinates
-   if less than x%, return to eventually fill up with black blocks
-   main_recurse
-      read word list, find random word, temporarily mark it as used
-      put it letter by letter, create a matrix work copy
-         if non matching letter -> drop matrix copy and return
-         if hit black block or beyond end of board -> drop matrix copy and return
-         if next to an existing letter
-            change direction (h/v)
-            determine coordinates from previous black block or board start
-            put_word
-      word was done without conflicts, store the matrix copy
+create basic matrix, the master, probably pre-populated
+set the x/y boundaries (same for the time being)
+set the wordfile to be used
+
+
+main_recurse loop, needs matrix, y, x
+  read the matrix from argument
+  mirrored = no
+  if not y, x: find start location. If no location available: we're done!
+  find direction, smaller number may get higher prob., eventually mirror the matrix, swap mirror flag!
+  search for start point, go left until hit black block or boundary, set y, x
+  read word list, find random word
+  make backup copy of matrix
+  loop through, letter by letter
+    if space in matrix, put the letter
+    if non matching letter -> return, backup matrix, y, x!
+    if hit black block or boundary -> return, backup matrix, y, x!
+    check left/right, if next to an existing letter
+      yes: mirror the matrix, and the limits, swap mirror flag
+        and: call recurse_loop with matrix and new x, y start location
+    else: word was done without conflicts, return the matrix
+
+
+we're done: print it and exit
