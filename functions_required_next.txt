@@ -15,10 +15,16 @@ numpy.rot90
 numpy.flipud
 return matrix
 
+count_spaces
+read matrix
+loop through y and x
+add if matrix[x][y] == " "
+return spaces
 
 check_surroundings
 read matrix, x, y
 check x-1, x+1, y-1 and y+1 (if valid) if character exists
 If yes, mirror the board and start next recursion from these coordinates
-I no, return matrix, x, y
-r
+If no, return matrix, x, y
+
+

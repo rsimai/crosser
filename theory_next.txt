@@ -5,24 +5,31 @@ matrix that can be pre-populated with letters and # to mark black fields
 dimensions, x,y. Probably square for the time being to allow mirroring vert./horiz.
 dictionary with "WORD explanation" combinations
 
+read the matrix and start point
 
-while x% of the board are spaces, go into the main loop
+while x% of the board are spaces, do the main loop
 
-  read the matrix and start point
-  if start point not given, determine a random start point, any free field will do
+  if start point outside boundaries, determine an inside start point, any free field will do
   call find_start_field and get x, y
   make a backup copy of the matrix
   find a random word from the dictionary, get the length
    loop through its letters from x to x+length
      check if loop value is within board size
      if not: fail
-     check matrix[x][y] is free
-     if yes: put letter
-             check if surroundings exist and enter next recursion
-     check matrix if #, then fail
-  when word is done: return matrix
+     check matrix[x][y] is free or same letter
+     if yes: check if next field is outside or free or black block
+          if yes:
+             put letter
+             check if surroundings exist
+             if yes: mirror matrix and start main loop with matrix, x, y
+             mirror matrix (back)
+     if yes: then fail
+    if fail, then return backup matrix
+  when word is done: set x, y to outside and return matrix
 
-not enough spaces left: print and end
+not enough spaces left: end, analyze board and create list
 
 
+
+missing: analyze board, find strings and explanations from dictionary, count black blocks and print
 
