@@ -20,7 +20,7 @@ main_recurse loop, needs matrix, y, x
     check left/right, if next to an existing letter
       yes: mirror the matrix, and the limits, swap mirror flag
         and: call recurse_loop with matrix and new x, y start location
-    else: word was done without conflicts, return the matrix
+    else: word was done without conflicts, return the matrix and -1 for x/y
 
 
 we're done: print it and exit
