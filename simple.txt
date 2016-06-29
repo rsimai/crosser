@@ -20,10 +20,12 @@ loop infinite
     pick (pop) random word up to possible length
     if wordlist too short
       black out field
+      mirror matrix
       end loop
     try to fit it in, loop by letters
       if matrix field is empty or matrix field is letter
         good
+      if all good
         write word to matrix
       else
         next word

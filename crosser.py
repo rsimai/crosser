@@ -33,12 +33,14 @@ def printout(mymatrix):
         print(outline)
     return
 
-def pickword(maxlength):
+def pickword():
     wordsleft = len(wordlist)
     if wordsleft < 1:
+        global wordlist
+        wordlist = load_dictionary()
         return "#"
     tryword = wordlist.pop(randint(0, wordsleft))
-    return tryword
+    return(tryword)
 
 def retainword(word):
     wordlist.append(word)
@@ -48,7 +50,7 @@ def suggest_coordinates():
         for x in range(max):
             if matrix[x][y] == " ":
                 return(x, y, "success")
-    return(0, 0, fail)
+    return(0, 0, "fail")
 
 def find_wordstart(x, y):
     for i in range(x, 0, -1):
@@ -59,12 +61,42 @@ def find_wordstart(x, y):
                     ypos = i
                 break
             return(xpos, ypos)
-    return (0, x)    
+    return (0, y)
 
 def mirror_matrix(mymatrix):
     mymatrix = numpy.rot90(mymatrix)
     mymatrix = numpy.flipud(mymatrix)
     return(mymatrix)
+
+wordlist = load_dictionary()
+
+
+while 1:
+    x, y, status = suggest_coordinates()
+    if status == "fail":
+        # no free fields left, exit
+        break
+    xstart, ystart = find_wordstart(x, y)
+    maxlength = max - xstart
+    while 1:
+        word = pickword()
+        if word == "#":
+            matrix[xstart][ystart] = word
+            break
+        letterok = 0
+        for letter in word:
+            if matrix[xstart + count][y] == " " or matrix[xstart + count][y] == letter:
+                letterok = 1
+            else:
+                letterok = 0
+                break
+            if letterok == 1:
+                if 
+                matrix[xstart + len(word)][y] = word
+
+            matrix[xstart + count][y] = letter
+
+
 
 
 printout(matrix)
