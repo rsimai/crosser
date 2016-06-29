@@ -1,0 +1,33 @@
+board shall look like this:
+
+ # # # # #
+          
+ # # # # #
+          
+ # # # # #
+          
+to avoid conflicts. Additional black blocks may appear.
+
+Create board
+
+loop infinite
+  find empty field, from left to right, up to down
+  if none available
+    exit, as we're done
+  determine max possible length
+  open wordlist
+  loop infinite
+    pick (pop) random word up to possible length
+    if wordlist too short
+      black out field
+      end loop
+    try to fit it in, loop by letters
+      if matrix field is empty or matrix field is letter
+        good
+        write word to matrix
+      else
+        next word
+  
+  
+
+
