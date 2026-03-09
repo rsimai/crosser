@@ -5,6 +5,7 @@ Rules enforced by the generator:
 - Cells are either letters or blocks (#).
 - Every across/down run that closes with length >= 2 must be a valid dictionary word.
 - Length-1 runs are not allowed.
+- No word may appear more than once in the grid (no duplicate words).
 - The search minimizes blocks by trying solutions with 0..N blocks.
 - Branching is biased toward letters that can grow into longer words.
 """
@@ -155,12 +156,17 @@ class CrosswordGenerator:
     def _symmetric_cell(self, r: int, c: int) -> Tuple[int, int]:
         return (self.height - 1 - r, self.width - 1 - c)
 
-    def _is_valid_close(self, run: str) -> bool:
+    def _is_valid_close(self, run: str, used_words: Optional[Set[str]] = None) -> bool:
         if not run:
             return True
         if len(run) == 1:
             return False
-        return run in self.words
+        if run not in self.words:
+            return False
+        # Check if word has already been used (no duplicates allowed)
+        if used_words is not None and run in used_words:
+            return False
+        return True
 
     def _possible_letters(self, across_prefix: str, down_prefix: str) -> List[Tuple[str, int]]:
         a_node = self.trie.walk(across_prefix)
@@ -195,9 +201,14 @@ class CrosswordGenerator:
         used_letters: int,
         used_blocks: int,
         block_limit: int,
+        used_words: Optional[Set[str]] = None,
     ) -> bool:
         self.nodes_visited += 1
         self._status_tick(used_letters, used_blocks, block_limit)
+
+        # Initialize used_words set on first call
+        if used_words is None:
+            used_words = set()
 
         # Check timeout
         if self.timeout is not None:
@@ -209,10 +220,10 @@ class CrosswordGenerator:
 
         total = self.width * self.height
         if idx == total:
-            if not self._is_valid_close(across_prefix):
+            if not self._is_valid_close(across_prefix, used_words):
                 return False
             for run in down_prefixes:
-                if not self._is_valid_close(run):
+                if not self._is_valid_close(run, used_words):
                     return False
             if used_blocks < self.min_blocks:
                 return False
@@ -221,18 +232,46 @@ class CrosswordGenerator:
 
         r, c = divmod(idx, self.width)
 
+        # Track if we add a row boundary word (for backtracking)
+        row_word_added = None
+        
         # End-of-row boundary: across run must close here.
         if c == 0 and idx > 0:
-            if not self._is_valid_close(across_prefix):
+            if not self._is_valid_close(across_prefix, used_words):
                 return False
+            # Add the completed across word to used_words if it's a valid word
+            if across_prefix and len(across_prefix) >= 2:
+                row_word_added = across_prefix
+                used_words.add(across_prefix)
             across_prefix = ""
 
         down_prefix = down_prefixes[c]
         forced = self.grid[r][c]
 
         if forced == "#":
-            if not (self._is_valid_close(across_prefix) and self._is_valid_close(down_prefix)):
+            # Track words that will close due to this block
+            across_to_add = None
+            down_to_add = None
+            
+            if not self._is_valid_close(across_prefix, used_words):
+                # Backtrack row word before returning
+                if row_word_added:
+                    used_words.discard(row_word_added)
                 return False
+            if not self._is_valid_close(down_prefix, used_words):
+                # Backtrack row word before returning
+                if row_word_added:
+                    used_words.discard(row_word_added)
+                return False
+            
+            # Add completed words to used set
+            if across_prefix and len(across_prefix) >= 2:
+                across_to_add = across_prefix
+                used_words.add(across_prefix)
+            if down_prefix and len(down_prefix) >= 2:
+                down_to_add = down_prefix
+                used_words.add(down_prefix)
+            
             down_prefixes[c] = ""
             ok = self._search(
                 idx + 1,
@@ -241,13 +280,27 @@ class CrosswordGenerator:
                 used_letters,
                 used_blocks,
                 block_limit,
+                used_words,
             )
             down_prefixes[c] = down_prefix
+            
+            # Backtrack: remove the words we added
+            if across_to_add:
+                used_words.discard(across_to_add)
+            if down_to_add:
+                used_words.discard(down_to_add)
+            # Backtrack row word
+            if row_word_added:
+                used_words.discard(row_word_added)
+            
             return ok
 
         if forced != " ":
             letter_candidates = self._possible_letters(across_prefix, down_prefix)
             if all(ch != forced for ch, _ in letter_candidates):
+                # Backtrack row word before returning
+                if row_word_added:
+                    used_words.discard(row_word_added)
                 return False
             down_prefixes[c] = down_prefix + forced
             next_across = across_prefix + forced
@@ -258,16 +311,23 @@ class CrosswordGenerator:
                 used_letters,
                 used_blocks,
                 block_limit,
+                used_words,
             )
             down_prefixes[c] = down_prefix
+            # Backtrack row word
+            if row_word_added:
+                used_words.discard(row_word_added)
             return ok
 
         letter_candidates = self._possible_letters(across_prefix, down_prefix)
 
         # Early failure detection: if no letters are possible and we can't place a block,
         # fail immediately
-        can_place_block = self._is_valid_close(across_prefix) and self._is_valid_close(down_prefix)
+        can_place_block = self._is_valid_close(across_prefix, used_words) and self._is_valid_close(down_prefix, used_words)
         if not letter_candidates and not can_place_block:
+            # Backtrack row word before returning
+            if row_word_added:
+                used_words.discard(row_word_added)
             return False
 
         # Try letters first to minimize blocks.
@@ -285,7 +345,9 @@ class CrosswordGenerator:
                 used_letters + 1,
                 used_blocks,
                 block_limit,
+                used_words,
             ):
+                # Success - don't backtrack row word, it's part of the solution
                 return True
             down_prefixes[c] = down_prefix
 
@@ -294,19 +356,36 @@ class CrosswordGenerator:
             sr, sc = self._symmetric_cell(r, c)
             added_blocks = 1
             added_symmetry_block = False
+            across_to_add = None
+            down_to_add = None
+            
             if self.symmetry == "rotational":
                 sym_value = self.grid[sr][sc]
                 sym_idx = sr * self.width + sc
                 if sym_value not in (" ", "#"):
                     self.grid[r][c] = " "
+                    # Backtrack row word before returning
+                    if row_word_added:
+                        used_words.discard(row_word_added)
                     return False
                 if sym_idx < idx and sym_value != "#":
                     self.grid[r][c] = " "
+                    # Backtrack row word before returning
+                    if row_word_added:
+                        used_words.discard(row_word_added)
                     return False
                 if (sr, sc) != (r, c) and sym_value == " ":
                     self.grid[sr][sc] = "#"
                     added_blocks += 1
                     added_symmetry_block = True
+
+            # Add completed words to used set
+            if across_prefix and len(across_prefix) >= 2:
+                across_to_add = across_prefix
+                used_words.add(across_prefix)
+            if down_prefix and len(down_prefix) >= 2:
+                down_to_add = down_prefix
+                used_words.add(down_prefix)
 
             self.grid[r][c] = "#"
             down_prefixes[c] = ""
@@ -317,13 +396,23 @@ class CrosswordGenerator:
                 used_letters,
                 used_blocks + added_blocks,
                 block_limit,
+                used_words,
             ):
                 return True
             down_prefixes[c] = down_prefix
             if added_symmetry_block:
                 self.grid[sr][sc] = " "
+            
+            # Backtrack: remove the words we added
+            if across_to_add:
+                used_words.discard(across_to_add)
+            if down_to_add:
+                used_words.discard(down_to_add)
 
         self.grid[r][c] = " "
+        # Backtrack row word before final return
+        if row_word_added:
+            used_words.discard(row_word_added)
         return False
 
     def generate(self, max_blocks: Optional[int] = None, start_blocks: Optional[int] = None) -> Optional[List[List[str]]]:
